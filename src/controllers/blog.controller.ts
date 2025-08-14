@@ -1,24 +1,17 @@
-const { Router } = require('express');
-const multer = require('multer');
-const path = require('path');
-const Blog = require('../models/blog');
-const Comment = require('../models/comment');
+import { Response, Request } from 'express';
+import type { UserTokenPayload } from '../services/authentication';
+import { Blog, IBlog } from '../models/blog';
+import { Comment } from '../models/comment';
 
-const router = Router();
+declare global {
+  namespace Express {
+    interface Request {
+      user?: UserTokenPayload | null;
+    }
+  }
+}
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.resolve(`./public/uploads/`));
-  },
-  filename: function (req, file, cb) {
-    const fileName = `${Date.now()}-${file.originalname}`;
-    cb(null, fileName);
-  },
-});
-
-const upload = multer({ storage: storage });
-
-router.get('/add-new', (req, res) => {
+export const renderCreateBlogPage = async (req: Request, res: Response) => {
   if (!req.user) {
     return res.redirect('/user/signin');
   }
@@ -26,12 +19,24 @@ router.get('/add-new', (req, res) => {
   return res.render('addBlog', {
     user: req.user,
   });
-});
+};
 
-router.post('/', upload.single('coverImage'), async (req, res) => {
-  console.log('Request body for adding blog', req.body);
-  console.log('Request user:', req.user);
-  console.log('Uploaded file:', req.file);
+export const handleAddBlogPost = async (
+  req: Request<
+    {},
+    {},
+    {
+      title: string;
+      body: string;
+    }
+  >,
+  res: Response,
+) => {
+  if (!req.file || !req.user) {
+    return res.render('addBlog', {
+      error: 'Invalid request',
+    });
+  }
 
   const blog = await Blog.create({
     title: req.body.title,
@@ -41,9 +46,9 @@ router.post('/', upload.single('coverImage'), async (req, res) => {
   });
   console.log('Blog created successfully', blog);
   return res.redirect(`/blog/${blog._id}`);
-});
+};
 
-router.get('/:id', async (req, res) => {
+export const handleGetBlogDetails = async (req: Request, res: Response) => {
   const blog = await Blog.findById(req.params.id).populate('createdBy');
   const comments = await Comment.find({ blogId: req.params.id }).populate('createdBy');
   console.log('Blog details:', blog);
@@ -53,9 +58,12 @@ router.get('/:id', async (req, res) => {
     blog: blog,
     comments: comments,
   });
-});
+};
 
-router.post('/comment/:blogId', async (req, res) => {
+export const handleAddComment = async (req: Request, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
   const comment = await Comment.create({
     content: req.body.content,
     createdBy: req.user.id,
@@ -63,6 +71,4 @@ router.post('/comment/:blogId', async (req, res) => {
   });
   console.log('Comment created:', comment);
   return res.redirect(`/blog/${req.params.blogId}`);
-});
-
-module.exports = router;
+};
