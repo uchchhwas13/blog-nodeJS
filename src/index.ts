@@ -1,17 +1,22 @@
 require('dotenv').config();
-const express = require('express');
-const path = require('path');
-const mongoose = require('mongoose');
-const cookieParser = require('cookie-parser');
-const { renderHomePage } = require('./controllers/app');
+import express from 'express';
+import path from 'path';
+import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
+import { renderHomePage } from './controllers/home.controller';
 
-const userRouter = require('./routes/user');
-const blogRouter = require('./routes/blog');
+import userRouter from './routes/user.route';
+import blogRouter from './routes/blog.route';
 
-const { checkAuthenticationCookie } = require('./middlewares/authentication');
+import { checkAuthenticationCookie } from './middlewares/authentication';
 
 const app = express();
 const PORT = process.env.PORT;
+
+if (!process.env.MONGO_URL) {
+  console.error('MONGO_URL is not defined in .env file');
+  process.exit(1);
+}
 
 mongoose.connect(process.env.MONGO_URL).then(() => console.log('Connected to MongoDB'));
 
@@ -21,7 +26,7 @@ app.use(checkAuthenticationCookie('token'));
 app.use(express.static(path.resolve('./public')));
 
 app.set('view engine', 'ejs');
-app.set('views', path.resolve('./views'));
+app.set('views', path.resolve('./src/views'));
 
 app.get('/', renderHomePage);
 
