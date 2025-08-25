@@ -1,0 +1,34 @@
+require('dotenv').config();
+import express from 'express';
+import path from 'path';
+import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
+
+import userRouter from './routes/user.route';
+import blogRouter from './routes/blog.route';
+
+import { authenticateRequest } from './middlewares/authentication.middleware';
+import { errorHandler } from './middlewares/errorHandler';
+
+const app = express();
+const PORT = process.env.PORT;
+
+if (!process.env.MONGO_URL) {
+  console.error('MONGO_URL is not defined in .env file');
+  process.exit(1);
+}
+
+mongoose.connect(process.env.MONGO_URL).then(() => console.log('Connected to MongoDB'));
+
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+app.use(cookieParser());
+app.use(authenticateRequest('accessToken'));
+app.use(express.static(path.resolve('./public')));
+
+app.use('/user', userRouter);
+app.use('/blogs', blogRouter);
+
+app.use(errorHandler);
+
+app.listen(PORT, () => console.log(`Server is running on http://localhost:${PORT}`));
